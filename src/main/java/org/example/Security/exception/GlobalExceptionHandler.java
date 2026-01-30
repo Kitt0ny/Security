@@ -1,4 +1,4 @@
-package org.example.Security;
+package org.example.Security.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -11,9 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
-public class GlobalExceptionHandler {//перехватчик ошибок от @Valid Spring иначе вывести в тестах ошибку о
-    // непройденной валидации не выйдет используя прописанную алидацию в классе и ее проерку в контроллере
-    //сделано неиронкой
+public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     ProblemDetail handleValidationException(MethodArgumentNotValidException ex) {
