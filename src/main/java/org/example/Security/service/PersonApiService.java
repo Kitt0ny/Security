@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -56,20 +57,24 @@ public class PersonApiService implements PersonApiInterface {
         return person.toDto();
     }
     public AuthResponse login(AuthRequest request) {
+        try {
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.login(),
+                            request.password()
+                    )
+            );
 
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.login(),
-                        request.password()
-                )
-        );
+            String role = auth.getAuthorities().iterator().next().getAuthority();
 
-        String role = auth.getAuthorities().iterator().next().getAuthority();
-
-        return new AuthResponse(
-                jwtService.generateAccessToken(auth.getName(), role),
-                jwtService.generateRefreshToken(auth.getName())
-        );
+            return new AuthResponse(
+                    jwtService.generateAccessToken(auth.getName(), role),
+                    jwtService.generateRefreshToken(auth.getName())
+            );
+        } catch (AuthenticationException e) {
+            System.err.println("Authentication failed: " + e.getMessage());
+            throw new IllegalArgumentException("Invalid credentials");
+        }
     }
     public AuthResponse refresh(RefreshRequest request) {
 
@@ -88,22 +93,22 @@ public class PersonApiService implements PersonApiInterface {
         Random random = new Random();
         if(personRepository.count()==0){
             if (!personRepository.existsByLogin("daniil")) {
-                personRepository.save(new Person("daniil",passwordEncoder.encode("daniil123"),"qvaqva@gmail.com","USER",LocalDateTime.now()));
+                personRepository.save(new Person("daniil",passwordEncoder.encode("daniil123"),"qvaqva@gmail.com","ROLE_USER",LocalDateTime.now()));
             }
             if (!personRepository.existsByLogin("elena")) {
-                personRepository.save(new Person("elena",passwordEncoder.encode("elena123"),"qvaqva1@gmail.com","ADMIN",LocalDateTime.now()));
+                personRepository.save(new Person("elena",passwordEncoder.encode("elena123"),"qvaqva1@gmail.com","ROLE_ADMIN",LocalDateTime.now()));
             }
             if (!personRepository.existsByLogin("mikhail")) {
-                personRepository.save(new Person("mikhail",passwordEncoder.encode("mikhail123"),"qvaqva2@gmail.com","USER",LocalDateTime.now()));
+                personRepository.save(new Person("mikhail",passwordEncoder.encode("mikhail123"),"qvaqva2@gmail.com","ROLE_USER",LocalDateTime.now()));
             }
             if (!personRepository.existsByLogin("kittony")) {
-                personRepository.save(new Person("kittony",passwordEncoder.encode("kittony123"),"qvaqva3@gmail.com","ADMIN",LocalDateTime.now()));
+                personRepository.save(new Person("kittony",passwordEncoder.encode("kittony123"),"qvaqva3@gmail.com","ROLE_ADMIN",LocalDateTime.now()));
             }
             for (int i = 0; i < 10; i++) {
                 String login = faker.name().username();
                 String password=passwordEncoder.encode(faker.pokemon().name());
                 String domain=faker.internet().safeEmailAddress();
-                String role=random.nextBoolean()?"USER":"ADMIN";
+                String role=random.nextBoolean()?"ROLE_USER":"ROLE_ADMIN";
                 LocalDateTime registrationDate=LocalDateTime.now();
                 Person person=new Person(login,password,domain,role,registrationDate);
                 personRepository.save(person);

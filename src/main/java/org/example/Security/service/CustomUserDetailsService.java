@@ -23,16 +23,21 @@ public class CustomUserDetailsService implements UserDetailsService {
     public boolean userExists(String username) {
         return personRepository.existsByLogin(username);
     }
-    @Override
-    public UserDetails loadUserByUsername(String login) {
-        Person user = personRepository.findPersonByLogin(login)
-                .orElseThrow(() -> new UsernameNotFoundException(login));
 
-        System.out.println(user.toString());
-        return User.builder()
-                .username(user.getLogin())
-                .password(user.getPassword())
-                .authorities(new SimpleGrantedAuthority("ROLE_" + user.getRole()))// Добавляем префикс ROLE_ (стандарт Spring Security)
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        System.out.println("Loading user: " + username); // ← Отладка
+
+        Person person = personRepository.findPersonByLogin(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+
+        System.out.println("User found: " + person.getLogin() + ", role: " + person.getRole()); // ← Отладка
+
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(person.getLogin())
+                .password(person.getPassword())
+                .authorities(person.getRole()) // Должно быть "ROLE_USER" или "ROLE_ADMIN"
                 .build();
     }
 }

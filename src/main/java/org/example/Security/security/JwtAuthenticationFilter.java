@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -31,24 +33,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
+        System.out.println("🔍 JWT Filter: " + request.getRequestURI()); // ← Отладка
+        System.out.println("📋 Authorization header: " + header); // ← Отладка
+
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
 
-            Claims claims = jwtService.parseToken(token);
+            try {
+                Claims claims = jwtService.parseToken(token);
+                String username = claims.getSubject();
+                String role = claims.get("role", String.class);
 
-            String username = claims.getSubject();
-            String role = claims.get("role", String.class);
+                System.out.println("✅ Token valid for user: " + username + ", role: " + role); // ← Отладка
 
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(
-                            new User(username, "", List.of(() -> role)),
-                            null,
-                            List.of(() -> role)
-                    );
+                UsernamePasswordAuthenticationToken auth =
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                List.of(new SimpleGrantedAuthority(role))
+                        );
 
-            SecurityContextHolder.getContext().setAuthentication(auth);
+                SecurityContextHolder.getContext().setAuthentication(auth);
+
+            } catch (Exception e) {
+                System.err.println("❌ Token validation failed: " + e.getMessage());
+                // Не устанавливаем authentication, пользователь останется анонимным
+            }
         }
 
         filterChain.doFilter(request, response);
     }
+
 }

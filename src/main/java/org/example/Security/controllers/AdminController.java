@@ -1,9 +1,9 @@
 package org.example.Security.controllers;
 
-import org.example.Security.GlobalExceptionHandler;
 import org.example.Security.service.PersonApiInterface;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -11,33 +11,35 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+
+import java.security.Principal;
 
 @Qualifier("PersonApiService")
 @Controller
 @RequestMapping("api/admin")
 public class AdminController {
     private PersonApiInterface personApiInterface;
-    private GlobalExceptionHandler globalExceptionHandler;
 
     @Autowired
-    public AdminController(PersonApiInterface personApiInterface, GlobalExceptionHandler globalExceptionHandler) {
+    public AdminController(PersonApiInterface personApiInterface) {
         this.personApiInterface = personApiInterface;
-        this.globalExceptionHandler = globalExceptionHandler;
     }
 
     @GetMapping("/hiAdmin")
-    public ResponseEntity<String> getGreetings(@AuthenticationPrincipal UserDetails userDetails) {
-        System.out.println("Логин: "+userDetails.getUsername()+" Пароль:  "+userDetails.getPassword());
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body("Здраствуйте уважаемый, " + userDetails.getUsername() + " админам тут всегда рады!");
-    }
-    @GetMapping("")
-    public String adminPanel(Model model, @AuthenticationPrincipal UserDetails userDetails) {
-        model.addAttribute("userName", userDetails.getUsername());
+    public String adminPanel(Model model) {
+        model.addAttribute("userName", "Admin");
         model.addAttribute("isAdmin", true);
         return "admin";
+    }
+
+    @GetMapping("")
+    public ResponseEntity<String> getGreetings(Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        return ResponseEntity.ok("Здравствуйте, " + principal.toString() + "!");
     }
 //    @PostMapping("/create")
 //    public ResponseEntity<PersonDTO> createUser(@AuthenticationPrincipal UserDetails userDetails

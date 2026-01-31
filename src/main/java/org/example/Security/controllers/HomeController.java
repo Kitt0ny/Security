@@ -1,9 +1,12 @@
 package org.example.Security.controllers;
 
-import org.example.Security.GlobalExceptionHandler;
+import org.example.Security.models.PersonDTO;
+import org.example.Security.models.authDTO.RegisterRequest;
 import org.example.Security.service.PersonApiInterface;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -12,45 +15,42 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.security.Principal;
+
 @Qualifier("PersonApiService")//т.к. мы сделали систему гибче указав в качестве сериса-интерфейс, нужно указать его реализацию  виде класса
 //таким образом  другом контроллере с тем же функционалом, но для другой платформы нужно лишь изменить qualifаir и написать новую реализацию
 @Controller
 @RequestMapping("api/home")
 public class HomeController {
     private PersonApiInterface personApiInterface;
-    private GlobalExceptionHandler globalExceptionHandler;
 
     @Autowired
-    public HomeController(PersonApiInterface personApiInterface, GlobalExceptionHandler globalExceptionHandler) {
+    public HomeController(PersonApiInterface personApiInterface) {
         this.personApiInterface = personApiInterface;
-        this.globalExceptionHandler = globalExceptionHandler;
+    }
+
+    @GetMapping("")
+    public String homePage(Model model) {
+        // Этот метод просто возвращает HTML страницу
+        // JWT проверяется через JavaScript на клиенте
+        return "home";
     }
 
     @GetMapping("/greetings")
-    public ResponseEntity<String> getGreetings(@AuthenticationPrincipal UserDetails userDetails) {
-        System.out.println("Логин: "+userDetails.getUsername()+" Пароль:  "+userDetails.getPassword());
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body("Ну, удачной охоты, сталкер, " + userDetails.getUsername() + "!");
+    public ResponseEntity<String> getGreetings(Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not authenticated");
+        }
+        return ResponseEntity.ok("Здравствуйте, " + principal.getName() + "!");
     }
+
 
     @GetMapping("/loginNew")
     public String login(Model model) {
         model.addAttribute("user", "Vasya");
         return "unauthorized";
     }
-    @GetMapping("")
-    public String homePage(Model model, @AuthenticationPrincipal UserDetails userDetails) {
-        model.addAttribute("username", userDetails.getUsername());
-        model.addAttribute("role", userDetails.getAuthorities());
-        return "home"; // Возвращает home.html из templates/
-    }
-//    @PostMapping("/create")
-//    public ResponseEntity<PersonDTO> createUser(@AuthenticationPrincipal UserDetails userDetails
-//    ){
-//        return personApiInterface.createUser(userDetails, false);
-//    }
-//
+
 //
 //    @DeleteMapping("/deleteById")
 //    public ResponseEntity<Void>deleteById(

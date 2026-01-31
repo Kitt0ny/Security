@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"  xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Авторизация</title>
@@ -29,11 +29,9 @@
 </head>
 <body>
 <div class="login-card">
-    <h2 class="welcome-message">
-        Добро пожаловать, <span th:text="${user}">Пользователь</span>!
-    </h2>
+    <h2 class="welcome-message">Добро пожаловать!</h2>
 
-    <form action="/login" method="post">
+    <form id="loginForm">
         <div class="mb-3">
             <label for="username" class="form-label">Логин</label>
             <input type="text"
@@ -67,21 +65,84 @@
             <a href="#" class="text-decoration-none">Забыли пароль?</a>
         </div>
 
-        <div th:if="${param.error}" class="alert alert-danger mt-3" role="alert">
+        <div id="errorMessage" class="alert alert-danger mt-3 d-none" role="alert">
             Неверный логин или пароль!
         </div>
 
-        <div th:if="${param.logout}" class="alert alert-success mt-3" role="alert">
-            Вы успешно вышли из системы!
+        <div id="successMessage" class="alert alert-success mt-3 d-none" role="alert">
+            Успешный вход! Перенаправление...
         </div>
     </form>
 
     <div class="mt-4 text-center">
         <p class="mb-0">Нет аккаунта?
-            <a href="/api/register" class="text-decoration-none fw-bold">Зарегистрироваться</a>
+            <a href="/api/registrationPage" class="text-decoration-none fw-bold">Зарегистрироваться</a>
         </p>
     </div>
 </div>
+
+<script>
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const rememberMe = document.getElementById('rememberMe').checked;
+
+        const errorDiv = document.getElementById('errorMessage');
+        const successDiv = document.getElementById('successMessage');
+
+        errorDiv.classList.add('d-none');
+        successDiv.classList.add('d-none');
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    login: username,
+                    password: password
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                console.log('✅ Login successful, tokens received');
+                console.log('Access token:', data.accessToken.substring(0, 50) + '...');
+
+                // Сохраняем токены
+                if (rememberMe) {
+                    localStorage.setItem('accessToken', data.accessToken);
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                } else {
+                    sessionStorage.setItem('accessToken', data.accessToken);
+                    sessionStorage.setItem('refreshToken', data.refreshToken);
+                }
+
+                successDiv.textContent = 'Успешный вход! Перенаправление...';
+                successDiv.classList.remove('d-none');
+
+                // Перенаправляем на главную страницу
+                setTimeout(() => {
+                    window.location.replace('/api/home'); // ← replace вместо href
+                }, 1000);
+
+            } else {
+                const error = await response.json();
+                errorDiv.textContent = error.error || 'Ошибка авторизации';
+                errorDiv.classList.remove('d-none');
+            }
+
+        } catch (error) {
+            console.error('❌ Login error:', error);
+            errorDiv.textContent = 'Ошибка подключения к серверу';
+            errorDiv.classList.remove('d-none');
+        }
+    });
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

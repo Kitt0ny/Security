@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Главная страница</title>
@@ -52,20 +52,15 @@
                     <a class="nav-link active" href="/api/home">Главная</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/api/admin">Админ-панель</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/api/profile">Профиль</a>
+                    <a class="nav-link" onclick="navigateToAdmin()">Админ-панель</a>
                 </li>
             </ul>
 
             <div class="navbar-text me-3">
-                Привет, <strong th:text="${#authentication.name}">Пользователь</strong>!
+                Привет, <strong id="userName">Загрузка...</strong>!
             </div>
 
-            <form th:action="@{/logout}" method="post">
-                <button class="btn btn-outline-danger" type="submit">Выйти</button>
-            </form>
+            <button class="btn btn-outline-danger" onclick="logout()">Выйти</button>
         </div>
     </div>
 </nav>
@@ -79,6 +74,11 @@
         <button id="greetBtn" class="btn btn-light btn-lg mt-3">
             Получить приветствие от API
         </button>
+        <div id="greetingResult" class="mt-3" style="display: none;">
+            <div class="alert alert-light" role="alert">
+                <span id="greetingText"></span>
+            </div>
+        </div>
     </div>
 
     <!-- Статистика -->
@@ -121,7 +121,7 @@
             <button class="btn btn-primary me-2" onclick="testApi('/api/home/greetings')">
                 Тест /api/home/greetings
             </button>
-            <button class="btn btn-success" onclick="testApi('/api/admin/hiAdmin')">
+            <button class="btn btn-success" onclick="testApi('/api/admin')">
                 Тест /api/admin/hiAdmin
             </button>
         </div>
@@ -133,33 +133,182 @@
 </div>
 
 <script>
-    // Обработчик для кнопки приветствия
-    document.getElementById('greetBtn').addEventListener('click', function() {
-        fetch('/api/home/greetings')
-            .then(response => response.json())
-            .then(data => {
-                alert(data);
+    let token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+
+    console.log('🔍 Token from storage:', token);
+
+    // ⚠️ КРИТИЧНО: Проверяем только при загрузке страницы, не постоянно!
+    if (!token || token === 'null' || token === 'undefined') {
+        console.log('❌ No valid token, redirecting to login');
+        window.location.replace('/api/loginPage'); // ← replace вместо href, чтобы не сохранять в истории
+        loadUserData();
+    } else {
+        // Токен есть, загружаем данные
+
+    }
+    function navigateToAdmin() {
+        fetch('/api/admin/hiAdmin', {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            },
+            redirect: 'follow' // Следуем за редиректами
+        })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.text();
+                }
             })
-            .catch(error => console.error('Error:', error));
+            .then(html => {
+                if (html) {
+                    // Если получили HTML, открываем его
+                    const newWindow = window.open();
+                    newWindow.document.write(html);
+                    newWindow.document.close();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка доступа к админ-панели');
+            });
+    }
+    // Загружаем данные пользователя при загрузке страницы
+    async function loadUserData() {
+        try {
+            console.log('📡 Fetching user data...');
+
+            const response = await fetch('/api/home/greetings', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            console.log('📥 Response status:', response.status);
+
+            if (response.ok) {
+                const data = await response.text();
+                console.log('✅ User data:', data);
+                document.getElementById('userName').textContent = extractUsername(data);
+            } else if (response.status === 401 || response.status === 403) {
+                console.log('🔄 Token expired, trying refresh');
+                await refreshToken();
+            } else {
+                console.error('❌ Unexpected error:', response.status);
+                logout();
+            }
+        } catch (error) {
+            console.error('❌ Error loading user data:', error);
+            // НЕ вызываем logout() при ошибке сети, чтобы избежать цикла
+        }
+    }
+
+    // Извлекаем имя пользователя из ответа
+    function extractUsername(text) {
+        const match = text.match(/Здравствуйте, (.+)!/);
+        return match ? match[1] : 'Пользователь';
+    }
+
+    // Обновление токена
+    async function refreshToken() {
+        const refreshTokenValue = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken');
+
+        if (!refreshTokenValue || refreshTokenValue === 'null') {
+            console.log('❌ No refresh token');
+            logout();
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/auth/refresh', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    refreshToken: refreshTokenValue
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                // Обновляем токены
+                if (localStorage.getItem('accessToken')) {
+                    localStorage.setItem('accessToken', data.accessToken);
+                    localStorage.setItem('refreshToken', data.refreshToken);
+                } else {
+                    sessionStorage.setItem('accessToken', data.accessToken);
+                    sessionStorage.setItem('refreshToken', data.refreshToken);
+                }
+
+                // Обновляем переменную token
+                token = data.accessToken;
+
+                // Пробуем снова загрузить данные
+                loadUserData();
+            } else {
+                console.error('❌ Refresh failed');
+                logout();
+            }
+        } catch (error) {
+            console.error('Error refreshing token:', error);
+            logout();
+        }
+    }
+
+    // Выход
+    function logout() {
+        console.log('🚪 Logging out');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.removeItem('refreshToken');
+        window.location.replace('/api/loginPage');
+    }
+
+    // Кнопка приветствия
+    document.getElementById('greetBtn').addEventListener('click', async function() {
+        try {
+            const response = await fetch('/api/home/greetings', {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.text();
+                document.getElementById('greetingText').textContent = data;
+                document.getElementById('greetingResult').style.display = 'block';
+            } else {
+                alert('Ошибка получения приветствия');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Ошибка подключения');
+        }
     });
 
     // Функция тестирования API
-    function testApi(endpoint) {
-        fetch(endpoint)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('HTTP error! status: ' + response.status);
+    async function testApi(endpoint) {
+        try {
+            const response = await fetch(endpoint, {
+                headers: {
+                    'Authorization': 'Bearer ' + token
                 }
-                return response.text();
-            })
-            .then(data => {
-                document.getElementById('resultText').textContent = data;
-                document.getElementById('apiResult').style.display = 'block';
-            })
-            .catch(error => {
-                document.getElementById('resultText').textContent = 'Ошибка: ' + error.message;
-                document.getElementById('apiResult').style.display = 'block';
             });
+
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
+            }
+
+            const data = await response.text();
+            document.getElementById('resultText').textContent = data;
+            document.getElementById('apiResult').style.display = 'block';
+        } catch (error) {
+            document.getElementById('resultText').textContent = 'Ошибка: ' + error.message;
+            document.getElementById('apiResult').style.display = 'block';
+        }
     }
 </script>
 

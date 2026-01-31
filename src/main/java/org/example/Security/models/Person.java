@@ -28,7 +28,7 @@ public class Person {
     private String domain;
 
     @NotBlank(message = "Роль не может быть пустой")
-    @Pattern(regexp = "^(USER|ADMIN)$", message = "Роль должна быть: USER или ADMIN")
+    @Pattern(regexp = "^(ROLE_USER|ROLE_ADMIN)$", message = "Роль должна быть: USER или ADMIN")
     @Column(nullable = false, columnDefinition = "NVARCHAR(20)")
     private String role;
 

@@ -4,9 +4,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.example.Security.DebugAuthenticationProvider;
+//import org.example.Security.DebugAuthenticationProvider;
 import org.example.Security.security.JwtAuthenticationFilter;
 import org.example.Security.security.JwtService;
+import org.example.Security.service.CustomUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,56 +17,70 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 
 @Configuration
 @EnableWebSecurity
 public class CustomConfigurationWebSecurity {
-private DebugAuthenticationProvider debugAuthenticationProvider;
+    private PasswordEncoder passwordEncoder;
+    private CustomUserDetailsService customUserDetailsService;
 private JwtService jwtService;
     @Autowired
-    public CustomConfigurationWebSecurity(DebugAuthenticationProvider debugAuthenticationProvider, JwtService jwtService) {
-        this.debugAuthenticationProvider = debugAuthenticationProvider;
-        this.jwtService = jwtService;
-    }
+    public CustomConfigurationWebSecurity( JwtService jwtService, PasswordEncoder passwordEncoder, CustomUserDetailsService customUserDetailsService) {
 
+        this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
+        this.customUserDetailsService = customUserDetailsService;
+    }
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
-        return http.getSharedObject(AuthenticationManagerBuilder.class)
-                .authenticationProvider(debugAuthenticationProvider)
-                .build();
+        AuthenticationManagerBuilder authManagerBuilder =
+                http.getSharedObject(AuthenticationManagerBuilder.class);
+        authManagerBuilder
+                .userDetailsService(customUserDetailsService)
+                .passwordEncoder(passwordEncoder);
+        return authManagerBuilder.build();
     }
-//    @Bean//Миши
-//    public AuthenticationManager authenticationManager(
-//            AuthenticationConfiguration config
-//    ) {
-//        return config.getAuthenticationManager();
-//    }
-
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtService);
     }
 
-    @Bean//Миши
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm ->
                         sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**", "/home/**").permitAll()
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/user/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers(
+                                "/api/auth/**",      // Rest авторизации
+                                "/api/loginPage",    // web Страница логина
+                                "/api/registrationPage", // web Страница регистрации
+                                "/api/",             // Главная (редирект)
+                                "/error",            // Страница ошибок
+                                "/css/**",           // Статика
+                                "/js/**",
+                                "/images/**",
+                                "/favicon.ico",
+                                "/.well-known/**"
+                        ).permitAll()
+                        .requestMatchers("/api/home").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/user/**","/api/home/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
@@ -74,6 +89,34 @@ private JwtService jwtService;
                 )
                 .build();
     }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:8080", "http://localhost:3000"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+//    @Bean
+//    public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+//        return http.getSharedObject(AuthenticationManagerBuilder.class)
+//                .authenticationProvider(debugAuthenticationProvider)
+//                .build();
+//    }
+//    @Bean//Миши
+//    public AuthenticationManager authenticationManager(
+//            AuthenticationConfiguration config
+//    ) {
+//        return config.getAuthenticationManager();
+//    }
+
+
+
 //
 //    @Bean//Фильтр Димы
 //    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
