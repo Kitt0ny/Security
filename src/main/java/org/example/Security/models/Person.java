@@ -97,7 +97,12 @@ public class Person {
         this.registrationDate = registrationDate;
     }
 
-    public PersonDTO getDTO() {
-        return new PersonDTO(login, domain, role, registrationDate);
+    public PersonDTO toDto() {
+        return new PersonDTO(
+                login,
+                domain,
+                role,
+                registrationDate
+        );
     }
 }

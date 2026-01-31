@@ -4,10 +4,6 @@ import org.example.Security.GlobalExceptionHandler;
 import org.example.Security.service.PersonApiInterface;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,4 +31,5 @@ public class UnauthorizedController {
     public String indexPage() {
         return "redirect:/api/loginNew"; // Перенаправление на страницу логина
     }
+
 }

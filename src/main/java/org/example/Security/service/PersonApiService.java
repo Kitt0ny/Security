@@ -2,16 +2,20 @@ package org.example.Security.service;
 
 import com.github.javafaker.Faker;
 import org.example.Security.models.Person;
-import org.example.Security.models.PersonDTO;
 import org.example.Security.PersonRepository;
+import org.example.Security.models.PersonDTO;
+import org.example.Security.models.authDTO.AuthRequest;
+import org.example.Security.models.authDTO.AuthResponse;
+import org.example.Security.models.authDTO.RefreshRequest;
+import org.example.Security.models.authDTO.RegisterRequest;
+import org.example.Security.security.JwtService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -21,83 +25,63 @@ public class PersonApiService implements PersonApiInterface {
     private final PersonRepository personRepository;
     private final PasswordEncoder passwordEncoder;
     private final Faker faker;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
     @Autowired
-    public PersonApiService(PersonRepository personRepository, PasswordEncoder passwordEncoder, Faker faker) {
+    public PersonApiService(PersonRepository personRepository, PasswordEncoder passwordEncoder, Faker faker, AuthenticationManager authenticationManager, JwtService jwtService) {
         this.personRepository = personRepository;
         this.passwordEncoder = passwordEncoder;
         this.faker = faker;
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
         generationData();
         System.out.println(personRepository.count()>0?"пользователи в бд появились или были":"БД пуста");
     }
 
-    @Override
-    public ResponseEntity<PersonDTO> createUser(UserDetails userDetails, boolean isAdmin) {
-        Person person=new Person(userDetails.getUsername(), userDetails.getPassword(), "abracadabra@gmail.com",isAdmin?"ADMIN":"USER",LocalDateTime.now());
-        if (personRepository.existsByLogin(person.getLogin())) return ResponseEntity.badRequest().build();
-        try {
-            person = personRepository.save(person);
-            URI location = ServletUriComponentsBuilder
-                    .fromCurrentContextPath()// Берет базовый URL: http://localhost
-                    .path("/api/home/getById")// Добавляет путь → /api/home/getById
-                    .queryParam("id", person.getId())
-                    .build()
-                    .toUri();
-            return ResponseEntity.created(location).body(person.getDTO());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(null);
+    public PersonDTO createUser(RegisterRequest registerRequest) {
+        if (personRepository.existsByLogin(registerRequest.login())) {
+            throw new IllegalArgumentException("User already exists");
         }
+
+        Person person = new Person(
+                registerRequest.login(),
+                passwordEncoder.encode(registerRequest.password()),
+                registerRequest.email(),
+                "ROLE_USER",
+                LocalDateTime.now()
+        );
+
+        personRepository.save(person);
+        return person.toDto();
     }
+    public AuthResponse login(AuthRequest request) {
 
-        //---------------------------------------------------------------
-    @Override
-    public ResponseEntity<Void> deleteById(Long id) {
-        if (id < 1) return ResponseEntity.badRequest().build();
-        try {
-            if (personRepository.existsById(id)) {
-                personRepository.deleteById(id);
-                return ResponseEntity.noContent().build();
-            }
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(null);
-        }
+        Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.login(),
+                        request.password()
+                )
+        );
+
+        String role = auth.getAuthorities().iterator().next().getAuthority();
+
+        return new AuthResponse(
+                jwtService.generateAccessToken(auth.getName(), role),
+                jwtService.generateRefreshToken(auth.getName())
+        );
     }
+    public AuthResponse refresh(RefreshRequest request) {
 
-    @Override
-    public ResponseEntity<Void> deleteAll() {
-        if (personRepository.count() > 0) {
-            personRepository.deleteAll();
-            return ResponseEntity.noContent().build();
-        } else return ResponseEntity.notFound().build();
-    }
+        var claims = jwtService.parseToken(request.refreshToken());
+        String username = claims.getSubject();
 
+        String role = "ROLE_USER";
 
-    //----------------------------------------------------------
-    public ResponseEntity<Long> getTotalCount() {
-        try {
-            return ResponseEntity.ok(personRepository.count());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(null);
-        }
-    }
-
-    @Override
-    public ResponseEntity<Boolean> existsById(Long id) {
-        if (id < 1) return ResponseEntity.badRequest().build();
-        try {
-            return ResponseEntity.ok(personRepository.existsById(id));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(null);
-        }
-    }
-
-    public List<PersonDTO> personToDtoList(List<Person> list) {
-        List<PersonDTO> personDTOList = new ArrayList<>();
-        for (Person person : list) {
-            personDTOList.add(person.getDTO());
-        }
-        return personDTOList;
+        return new AuthResponse(
+                jwtService.generateAccessToken(username, role),
+                jwtService.generateRefreshToken(username)
+        );
     }
 
     public void generationData(){
@@ -126,4 +110,21 @@ public class PersonApiService implements PersonApiInterface {
             }
         }
     }
+//    @Override//
+//    public ResponseEntity<PersonDTO> createUser(UserDetails userDetails, boolean isAdmin) {
+//        Person person=new Person(userDetails.getUsername(), userDetails.getPassword(), "abracadabra@gmail.com",isAdmin?"ADMIN":"USER",LocalDateTime.now());
+//        if (personRepository.existsByLogin(person.getLogin())) return ResponseEntity.badRequest().build();
+//        try {
+//            person = personRepository.save(person);
+//            URI location = ServletUriComponentsBuilder
+//                    .fromCurrentContextPath()// Берет базовый URL: http://localhost
+//                    .path("/api/home/getById")// Добавляет путь → /api/home/getById
+//                    .queryParam("id", person.getId())
+//                    .build()
+//                    .toUri();
+//            return ResponseEntity.created(location).body(person.toDto());
+//        } catch (Exception e) {
+//            return ResponseEntity.internalServerError().body(null);
+//        }
+//    }
 }
