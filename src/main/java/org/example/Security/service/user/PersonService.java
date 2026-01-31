@@ -33,7 +33,7 @@ public class PersonService {
         return toDto(person);
     }
 
-    public PersonDto toDto(Person person) {
+    private PersonDto toDto(Person person) {
         return new PersonDto(
                 person.getLogin(),
                 person.getEmail(),

@@ -1,9 +1,11 @@
 package org.example.Security.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
+@Getter
 @Entity
 @Table(name = "persons")
 public class Person {
@@ -35,29 +37,5 @@ public class Person {
         this.email = email;
         this.role = role;
         this.registrationDate = LocalDateTime.now();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getLogin() {
-        return login;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public LocalDateTime getRegistrationDate() {
-        return registrationDate;
     }
 }
