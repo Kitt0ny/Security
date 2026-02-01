@@ -6,7 +6,7 @@ import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
 
 @Entity
-public class Person {
+public class Person {//поидее нужно наследовать от UserDetail
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

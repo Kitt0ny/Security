@@ -33,8 +33,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
-        System.out.println("🔍 JWT Filter: " + request.getRequestURI()); // ← Отладка
-        System.out.println("📋 Authorization header: " + header); // ← Отладка
+        System.out.println("🔍 JWT Filter: " + request.getRequestURI());
+        System.out.println("📋 Authorization header: " + header);
 
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = claims.getSubject();
                 String role = claims.get("role", String.class);
 
-                System.out.println("✅ Token valid for user: " + username + ", role: " + role); // ← Отладка
+                System.out.println("✅ Token valid for user: " + username + ", role: " + role);
 
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken(
@@ -57,7 +57,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             } catch (Exception e) {
                 System.err.println("❌ Token validation failed: " + e.getMessage());
-                // Не устанавливаем authentication, пользователь останется анонимным
             }
         }
 
